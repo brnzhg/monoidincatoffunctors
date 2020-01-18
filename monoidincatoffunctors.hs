@@ -1,14 +1,10 @@
 #!/usr/bin/env stack
 -- stack --resolver lts-14.12 script
 
--- {-# LANGUAGE DataKinds                      #-}
 {-# LANGUAGE GADTs                          #-}
--- {-# LANGUAGE KindSignatures                 #-}
 {-# LANGUAGE LambdaCase                     #-}
--- {-# LANGUAGE MultiParamTypeClasses          #-}
 {-# LANGUAGE RankNTypes                     #-}
 {-# LANGUAGE ScopedTypeVariables            #-}
--- {-# LANGUAGE StandaloneDeriving             #-}
 {-# LANGUAGE TypeFamilies                   #-}
 {-# LANGUAGE TypeInType                     #-}
 {-# LANGUAGE TypeOperators                  #-}
@@ -37,12 +33,12 @@ instance (Functor f, Functor g) => Functor (Day f g) where
 --bifunctor (C, C) -> C, where C is the Endofunctor category
 class FCBiFunctor b where
   --b is a functor when f and g are, so must have fmap
-  functorMulMap :: (Functor f, Functor g) => (a -> a') -> (b f g a -> b f g a')
-  functorMulNat :: (Functor f, Functor f', Functor g, Functor g') 
+  fcbiMap :: (Functor f, Functor g) => (a -> a') -> (b f g a -> b f g a')
+  fcbiNat :: (Functor f, Functor f', Functor g, Functor g') 
     => (f ~> f') -> (g ~> g') -> (b f g ~> b f' g')
 
 instance (Functor f, Functor g, FCBiFunctor b) => Functor (b f g) where
-  fmap = functorMulMap
+  fmap = fcbiMap
 
 class (FCBiFunctor b, Functor (FCId b)) => FCMonoidalProd b where
   --identity functor
@@ -71,7 +67,7 @@ unitorDiagramLeft p eq = eq lambPath etamuPath
     lambPath :: m a
     lambPath = fcLamb p
     etamuPath :: m a
-    etamuPath = fcMu $ functorMulNat fcUnit id p
+    etamuPath = fcMu $ fcbiNat fcUnit id p
 
 pentagonDiagram :: forall m a. (FCMonoid m) => FCProd m m (FCProd m m m) a
   -> (m a -> m a -> Bool)
@@ -79,9 +75,9 @@ pentagonDiagram :: forall m a. (FCMonoid m) => FCProd m m (FCProd m m m) a
 pentagonDiagram p eq = eq clockwisePath counterPath
   where
     clockwisePath :: m a
-    clockwisePath = fcMu . functorMulNat fcMu id $ fcAlpha p
+    clockwisePath = fcMu . fcbiNat fcMu id $ fcAlpha p
     counterPath :: m a
-    counterPath = fcMu $ functorMulNat id fcMu p
+    counterPath = fcMu $ fcbiNat id fcMu p
 
 
 -- Monads
@@ -91,9 +87,9 @@ newtype MonadW m a = MonadW { getM :: m a }
 newtype Compose f g a = Compose { getCompose :: f (g a) }
 
 instance FCBiFunctor Compose where
-  functorMulMap f (Compose { getCompose = c}) = 
+  fcbiMap f (Compose { getCompose = c}) = 
     Compose { getCompose = fmap (fmap f) c }
-  functorMulNat fnat gnat (Compose { getCompose = c }) =
+  fcbiNat fnat gnat (Compose { getCompose = c }) =
     Compose { getCompose = fnat . fmap gnat $ c }
 
 instance FCMonoidalProd Compose where
@@ -115,8 +111,8 @@ newtype ApW m a = ApW { getAp :: m a }
   deriving (Functor, Applicative)
 
 instance FCBiFunctor Day where
-  functorMulMap y (Day z f g) = Day (y . z) f g
-  functorMulNat fnat gnat (Day z f g) = Day z (fnat f) (gnat g)
+  fcbiMap y (Day z f g) = Day (y . z) f g
+  fcbiNat fnat gnat (Day z f g) = Day z (fnat f) (gnat g)
 
 instance FCMonoidalProd Day where
   type FCId Day = Identity
